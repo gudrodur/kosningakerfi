@@ -1,18 +1,38 @@
-rules_version='2'
+rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Default: Deny all reads and writes by default.
     match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2025, 7, 5);
+      allow read, write: if false;
     }
+
+    // Allow any authenticated user to read election and item data.
+    match /elections/{electionId} {
+      allow read: if request.auth != null;
+
+      match /items/{itemId} {
+        allow read: if request.auth != null;
+      }
+    }
+
+    // Allow admins to create and update elections.
+    // This requires setting a custom claim on the admin user.
+    match /elections/{electionId} {
+       allow write: if request.auth.token.isAdmin == true;
+    }
+
+    // IMPORTANT: Disallow clients from writing votes directly.
+    // Votes should ONLY be cast via a secure Cloud Function (e.g., castVote).
+    // This prevents users from voting multiple times or outside the election period.
+    match /votes/{voteId} {
+      allow read, write: if false;
+    }
+
+    // Optional: Allow users to read/write their own user profile document.
+    // match /users/{userId} {
+    //  allow read, write: if request.auth.uid == userId;
+    // }
   }
 }
