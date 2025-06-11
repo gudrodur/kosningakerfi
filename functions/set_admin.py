@@ -1,26 +1,20 @@
 # set_admin.py
 # A one-time script to grant administrative privileges to a user.
-# This works by setting a "custom claim" on the user's Firebase Auth token.
-# The `create_election` Cloud Function and Firestore security rules will
-# then check for this claim to authorize admin-only actions.
+# This works by setting a "custom claim" on the user's Firebase Auth token
+# AND updating their role in their Firestore user profile document.
 
 import os
 import firebase_admin
-from firebase_admin import credentials, auth
+from firebase_admin import credentials, auth, firestore
 
 # --- IMPORTANT: SETUP INSTRUCTIONS ---
-# 1. Download your service account key from the Firebase Console:
-#    Project Settings > Service accounts > "Generate new private key".
-# 2. Save the downloaded JSON file as 'serviceAccountKey.json' in the same
-#    directory as this script (the root of your project).
-# 3. VERY IMPORTANT: Add 'serviceAccountKey.json' to your main .gitignore file!
-#    This file contains sensitive credentials and should never be committed
-#    to version control.
+# 1. Download your service account key from the Firebase Console.
+# 2. Save it as 'serviceAccountKey.json' in the root of the project.
+# 3. Add 'serviceAccountKey.json' to your main .gitignore file!
 
 # --- CONFIGURATION ---
-# Replace this with the UID (kennitala) of the user you want to make an admin.
-# I'm using the UID from your test logs.
-USER_UID_TO_MAKE_ADMIN = "2009783589" 
+# Replace this with the KENNITALA of the user you want to make an admin.
+USER_KENNITALA_TO_MAKE_ADMIN = "2009783589" 
 
 # The path to your service account key file.
 SERVICE_ACCOUNT_KEY_PATH = "serviceAccountKey.json"
@@ -28,41 +22,58 @@ SERVICE_ACCOUNT_KEY_PATH = "serviceAccountKey.json"
 
 def set_admin_claim():
     """
-    Initializes the Firebase Admin SDK and sets the custom claim for the specified user.
+    Initializes the Firebase Admin SDK and sets the custom claim
+    and Firestore role for the specified user.
     """
     try:
-        # Check if the service account key file exists.
         if not os.path.exists(SERVICE_ACCOUNT_KEY_PATH):
             print(f"ERROR: Service account key file not found at '{SERVICE_ACCOUNT_KEY_PATH}'.")
-            print("Please follow the setup instructions in the script's comments.")
             return
 
-        # Initialize the Firebase Admin SDK with the service account credentials.
-        # This gives the script administrative access to your Firebase project.
         cred = credentials.Certificate(SERVICE_ACCOUNT_KEY_PATH)
         
-        # Check if an app is already initialized to avoid errors.
         if not firebase_admin._apps:
             firebase_admin.initialize_app(cred)
 
-        # Set the custom user claim 'isAdmin' to True for the specified user.
-        # This claim will be included in the user's ID token upon their next login/refresh.
-        auth.set_custom_user_claims(USER_UID_TO_MAKE_ADMIN, {'isAdmin': True})
+        db = firestore.client()
+
+        # NEW LOGIC: Find the user's UID by querying Firestore for their kennitala
+        print(f"Searching for user with kennitala: {USER_KENNITALA_TO_MAKE_ADMIN}...")
+        users_ref = db.collection('users')
+        query = users_ref.where('kennitala', '==', USER_KENNITALA_TO_MAKE_ADMIN).limit(1)
+        results = list(query.stream())
+
+        if not results:
+            print(f"--- ERROR ---")
+            print(f"No user found with kennitala '{USER_KENNITALA_TO_MAKE_ADMIN}' in Firestore.")
+            return
+
+        # Get the user's document and their actual Firebase Auth UID
+        user_doc = results[0]
+        auth_uid = user_doc.id
+        print(f"Found user '{user_doc.to_dict().get('fullName')}' with UID: {auth_uid}")
+
+        # 1. Set the custom user claim 'isAdmin' to True for the user in Auth
+        auth.set_custom_user_claims(auth_uid, {'isAdmin': True})
         
-        # To verify, fetch the user and check their custom claims.
-        user = auth.get_user(USER_UID_TO_MAKE_ADMIN)
-        if user.custom_claims and user.custom_claims.get('isAdmin'):
+        # 2. Update the role in the user's Firestore document
+        user_doc.reference.update({'role': 'admin'})
+        
+        # Verify both steps
+        user = auth.get_user(auth_uid)
+        updated_doc = user_doc.reference.get()
+
+        if user.custom_claims and user.custom_claims.get('isAdmin') and updated_doc.to_dict().get('role') == 'admin':
             print("--- SUCCESS ---")
-            print(f"Successfully set 'isAdmin=True' for user: {USER_UID_TO_MAKE_ADMIN} ({user.display_name})")
+            print(f"Successfully set 'isAdmin=True' and 'role=admin' for user: {auth_uid} ({user.display_name})")
             print("The user will have admin privileges on their next sign-in or token refresh.")
         else:
-            # This case should ideally not be reached if set_custom_user_claims succeeds.
-            print(f"ERROR: Failed to verify the admin claim for user {USER_UID_TO_MAKE_ADMIN}")
+            print(f"ERROR: Failed to verify the admin claim/role for user {auth_uid}")
 
     except Exception as e:
         print(f"--- AN ERROR OCCURRED ---")
         print(e)
-        print("\nPlease ensure 'serviceAccountKey.json' is valid and the UID is correct.")
+        print("\nPlease ensure 'serviceAccountKey.json' is valid and the kennitala is correct.")
 
 # --- SCRIPT EXECUTION ---
 if __name__ == "__main__":
