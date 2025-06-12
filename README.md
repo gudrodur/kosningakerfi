@@ -27,17 +27,17 @@ Full Local Development Environment: Utilizes the complete Firebase Emulator Suit
 
 📦 Project Structure
 .
-├── frontend/             # React Frontend Application (Create React App)
+├── frontend/           # React Frontend Application (Create React App)
 │   ├── public/
 │   └── src/
-│       ├── App.js        # Main component with routing and auth state
-│       ├── AuthPage.js   # Component for login/registration choices
-│       ├── AdminDashboard.js # Admin-only component for creating elections
+│       ├── App.js            # Main component with routing and auth state
+│       ├── AuthPage.js       # Component for login/registration choices
+│       ├── AdminDashboard.js   # Admin-only component for creating elections
 │       └── ElectionDashboard.js # User-facing component to view elections
 │
-├── functions/            # Firebase Cloud Functions (Python Backend)
-│   ├── main.py         # Cloud Function definitions for auth and elections
-│   ├── set_admin.py    # One-time script to grant admin roles
+├── functions/          # Firebase Cloud Functions (Python Backend)
+│   ├── main.py           # Cloud Function definitions for auth and elections
+│   ├── set_admin.py      # One-time script to grant admin roles
 │   └── requirements.txt  # Python dependencies
 │
 ├── firebase.json         # Firebase project configuration (emulators, hosting)
@@ -55,23 +55,32 @@ Python (v3.10 or later) and pip
 Firebase CLI (npm install -g firebase-tools)
 
 1. Clone and Install Dependencies
-# Clone the repository
+Clone the repository
+
 git clone <your-repo-url>
 cd <project-folder>
 
-# Install frontend dependencies
+Install frontend dependencies
+
 cd frontend
 npm install
 cd ..
 
-# Set up Python virtual environment and install backend dependencies
+Set up Python virtual environment and install backend dependencies
+
 cd functions
 python -m venv venv
-# Activate the virtual environment (syntax depends on your OS)
-# On Windows:
-# venv\Scripts\activate
-# On macOS/Linux:
-# source venv/bin/activate
+
+Activate the virtual environment (syntax depends on your OS)
+
+On Windows:
+
+venv\Scripts\activate
+
+On macOS/Linux:
+
+source venv/bin/activate
+```bash
 pip install -r requirements.txt
 cd ..
 
@@ -82,8 +91,9 @@ Create a file named .env inside the functions/ directory.
 
 Add your credentials to the file:
 
-# functions/.env
-KENNI_IS_ISSUER_URL="https://idp.kenni.is/sosi-kosningakerfi.is"
+functions/.env
+
+KENNI_IS_ISSUER_URL="[https://idp.kenni.is/sosi-kosningakerfi.is](https://idp.kenni.is/sosi-kosningakerfi.is)"
 KENNI_IS_CLIENT_ID="your-kenni-is-client-id"
 KENNI_IS_CLIENT_SECRET="your-kenni-is-client-secret"
 
@@ -92,14 +102,16 @@ You need two terminals running concurrently.
 
 Terminal 1: Start Firebase Emulators
 
-# From the project root directory
+From the project root directory:
+
 firebase emulators:start
 
 This will start the emulators for Authentication, Functions, Firestore, and Hosting.
 
 Terminal 2: Start the React Frontend
 
-# From the /frontend directory
+From the /frontend directory:
+
 npm start
 
 Your application will be available at http://localhost:3000, and the Emulator UI can be viewed at http://localhost:4000.
@@ -113,7 +125,8 @@ Open the functions/set_admin.py file and set the USER_KENNITALA_TO_MAKE_ADMIN va
 
 Run the script from the project root (ensure your Python virtual environment is active):
 
-# Make sure you are in the root directory
+Make sure you are in the root directory
+
 python functions/set_admin.py
 
 The user will now have admin rights on their next login.
@@ -130,4 +143,4 @@ Database: Cloud Firestore
 Development: Create React App, Firebase Emulator Suite, requests, PyJWT
 
 📄 License
-This project is licensed under the MIT License.
+This project is licensed
