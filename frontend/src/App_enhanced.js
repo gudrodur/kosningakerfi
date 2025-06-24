@@ -4,8 +4,7 @@ import { initializeApp } from 'firebase/app';
 import {
   getAuth, onAuthStateChanged, GoogleAuthProvider,
   signInWithPopup, signOut, signInWithCustomToken,
-  connectAuthEmulator, linkWithPopup, updateProfile, createUserWithEmailAndPassword,
-  signInWithEmailAndPassword
+  connectAuthEmulator, linkWithPopup, updateProfile, createUserWithEmailAndPassword
 } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'; 
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from 'firebase/functions';
@@ -16,56 +15,7 @@ const DEV_MODE = process.env.NODE_ENV === 'development' || process.env.REACT_APP
 const FELAGAKERFI_API_URL = process.env.REACT_APP_FELAGAKERFI_API_URL || 'http://127.0.0.1:8000';
 const FELAGAKERFI_API_TOKEN = process.env.REACT_APP_FELAGAKERFI_API_TOKEN || 'bff129d4a4c1b510f5b874769b4f87607fe1e0f4';
 
-// --- ENHANCED LOGGING FOR VSCODE ---
-const vscodeLog = (message, data = null, level = 'info') => {
-  const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
-  const logMessage = `[${timestamp}] ${message}`;
-  
-  // Standard console logging with colors
-  switch(level) {
-    case 'error':
-      console.error('❌', logMessage, data || '');
-      break;
-    case 'warn':
-      console.warn('⚠️', logMessage, data || '');
-      break;
-    case 'success':
-      console.log('✅', logMessage, data || '');
-      break;
-    case 'info':
-    default:
-      console.log('🔧', logMessage, data || '');
-      break;
-  }
-  
-  // Send to VSCode if available
-  try {
-    if (window.parent && window.parent.postMessage) {
-      window.parent.postMessage({
-        type: 'VSCODE_LOG',
-        level,
-        message: logMessage,
-        data: data || {},
-        timestamp: Date.now()
-      }, '*');
-    }
-    
-    // Also try sending to VSCode extension if available
-    if (window.acquireVsCodeApi) {
-      const vscode = window.acquireVsCodeApi();
-      vscode.postMessage({
-        type: 'log',
-        level,
-        message: logMessage,
-        data: data || {}
-      });
-    }
-  } catch (error) {
-    // Silently fail if VSCode integration not available
-  }
-};
-
-vscodeLog(`Running in ${DEV_MODE ? 'DEVELOPMENT' : 'PRODUCTION'} mode`);
+console.log(`🔧 Running in ${DEV_MODE ? 'DEVELOPMENT' : 'PRODUCTION'} mode`);
 
 // --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
@@ -116,7 +66,7 @@ function isValidSSN(ssn) {
 
 // --- FELAGAKERFI API INTEGRATION ---
 async function verifySSNWithFelagakerfi(ssn) {
-  vscodeLog('Verifying SSN with FelagaKerfi-Tvo API...', { ssn: ssn.substring(0, 6) + '-XXXX' });
+  console.log('🔍 Verifying SSN with FelagaKerfi-Tvo API...');
   
   try {
     const response = await fetch(`${FELAGAKERFI_API_URL}/felagar/comrades/verify_ssn/`, {
@@ -134,12 +84,7 @@ async function verifySSNWithFelagakerfi(ssn) {
     }
 
     const data = await response.json();
-    vscodeLog('FelagaKerfi API response received', {
-      valid: data.valid,
-      eligible: data.eligible,
-      member_name: data.member_name,
-      member_id: data.member_id
-    }, 'success');
+    console.log('✅ FelagaKerfi API response:', data);
     
     return {
       success: true,
@@ -150,7 +95,7 @@ async function verifySSNWithFelagakerfi(ssn) {
       message: data.message
     };
   } catch (error) {
-    vscodeLog('FelagaKerfi API error', { error: error.message }, 'error');
+    console.error('❌ FelagaKerfi API error:', error);
     return {
       success: false,
       error: `API Error: ${error.message}`,
@@ -162,66 +107,26 @@ async function verifySSNWithFelagakerfi(ssn) {
 
 // --- DEVELOPMENT AUTH FUNCTIONS ---
 async function createDevUserWithSSN(ssn, memberData) {
-  vscodeLog('Creating development user', { 
-    ssn: ssn.substring(0, 6) + '-XXXX',
-    memberName: memberData.member_name 
-  });
+  console.log('🔧 Creating development user with SSN:', ssn);
   
   try {
     // Generate a simple email from SSN for development
     const devEmail = `dev${ssn.replace(/\D/g, '')}@kosningakerfi.local`;
     const devPassword = 'DevPassword123!';
     
-    let user;
-    let userCredential;
+    // Create Firebase user
+    const userCredential = await createUserWithEmailAndPassword(auth, devEmail, devPassword);
+    const user = userCredential.user;
     
-    try {
-      // Try to create new user first
-      userCredential = await createUserWithEmailAndPassword(auth, devEmail, devPassword);
-      user = userCredential.user;
-      
-      // Update display name for new user
-      await updateProfile(user, {
-        displayName: memberData.member_name || `Dev User ${ssn}`
-      });
-      
-      vscodeLog('New development user created', {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName
-      }, 'success');
-      
-    } catch (createError) {
-      if (createError.code === 'auth/email-already-in-use') {
-        // User already exists, sign in instead
-        vscodeLog('User already exists, signing in', { email: devEmail }, 'info');
-        
-        userCredential = await signInWithEmailAndPassword(auth, devEmail, devPassword);
-        user = userCredential.user;
-        
-        // Update display name in case it changed
-        if (user.displayName !== memberData.member_name) {
-          await updateProfile(user, {
-            displayName: memberData.member_name || user.displayName
-          });
-        }
-        
-        vscodeLog('Existing user signed in successfully', {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName
-        }, 'success');
-        
-      } else {
-        // Some other error, re-throw it
-        throw createError;
-      }
-    }
+    // Update display name
+    await updateProfile(user, {
+      displayName: memberData.member_name || `Dev User ${ssn}`
+    });
     
+    console.log('✅ Development user created:', user.uid);
     return user;
-    
   } catch (error) {
-    vscodeLog('Error in development authentication', { error: error.message }, 'error');
+    console.error('❌ Error creating development user:', error);
     throw error;
   }
 }
@@ -322,19 +227,10 @@ function SSNVerificationForm({ onVerificationSuccess, onError }) {
       }
 
       if (!verificationResult.eligible) {
-        vscodeLog('User not eligible to vote', {
-          ssn: ssn.substring(0, 6) + '-XXXX',
-          reason: 'Not in member database'
-        }, 'warn');
         throw new Error('Þú ert ekki í félagaskrá og getur því ekki kosið');
       }
 
       // Success! Pass data to parent component
-      vscodeLog('User eligible for voting', {
-        memberName: verificationResult.member_name,
-        memberId: verificationResult.member_id
-      }, 'success');
-      
       onVerificationSuccess({
         ssn: ssn.replace(/\D/g, ''),
         memberData: {
@@ -344,7 +240,7 @@ function SSNVerificationForm({ onVerificationSuccess, onError }) {
       });
 
     } catch (error) {
-      vscodeLog('Verification failed', { error: error.message }, 'error');
+      console.error('Verification failed:', error);
       setError(error.message);
       onError && onError(error);
     } finally {
@@ -441,31 +337,27 @@ function AuthPage() {
   const [showSSNForm, setShowSSNForm] = useState(DEV_MODE); // Start with SSN form in dev mode
 
   const handleSSNVerificationSuccess = async ({ ssn, memberData }) => {
-    vscodeLog('SSN verification successful', {
-      ssn: ssn.substring(0, 6) + '-XXXX',
-      memberName: memberData.member_name,
-      memberId: memberData.member_id
-    }, 'success');
+    console.log('✅ SSN verification successful:', { ssn, memberData });
     
     try {
       if (DEV_MODE) {
         // Development mode: Create simple Firebase user
         await createDevUserWithSSN(ssn, memberData);
-        vscodeLog('Navigating to main application', {}, 'info');
         navigate('/');
       } else {
         // Production mode: Continue with Kenni.is flow
-        vscodeLog('Production mode: Would proceed with Kenni.is verification', {}, 'info');
+        // This would integrate with existing Kenni.is process
+        console.log('🔄 Would proceed with Kenni.is verification in production');
         alert('Production mode: Would continue with Kenni.is verification');
       }
     } catch (error) {
-      vscodeLog('Error in authentication flow', { error: error.message }, 'error');
+      console.error('❌ Error in authentication flow:', error);
       alert(`Authentication failed: ${error.message}`);
     }
   };
 
   const handleVerificationError = (error) => {
-    vscodeLog('Verification error occurred', { error: error.message }, 'error');
+    console.error('❌ Verification error:', error);
   };
 
   // Production Kenni.is functions (existing)
@@ -682,12 +574,9 @@ function UserProfile({ user }) {
         const idTokenResult = await user.getIdTokenResult(true);
         if (idTokenResult.claims.isAdmin) {
           setIsAdmin(true);
-          vscodeLog('User has admin privileges', { uid: user.uid }, 'info');
-        } else {
-          vscodeLog('User has regular privileges', { uid: user.uid }, 'info');
         }
       } catch (error) {
-        vscodeLog('Error checking admin status', { error: error.message }, 'error');
+        console.error('Error checking admin status:', error);
       }
       setCheckingAdmin(false);
     };
