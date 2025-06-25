@@ -419,18 +419,6 @@ function SSNVerificationForm({ onVerificationSuccess, onError }) {
           )}
         </button>
       </form>
-
-      {DEV_MODE && (
-        <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">🔧 Þróunarhamur - Prófunar kennitölur:</h3>
-          <div className="text-xs text-gray-600 space-y-1">
-            <div>• 230397-5391 (Sigurður Einarsson)</div>
-            <div>• 150174-5696 (Sigríður Einarsdóttir)</div>
-            <div>• 170998-4199 (Gunnar Jónsson)</div>
-            <div>• 999999-9999 (Ekki í skrá)</div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
